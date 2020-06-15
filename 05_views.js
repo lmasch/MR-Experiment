@@ -23,14 +23,7 @@ const intro = magpieViews.view_generator("intro", {
   trials: 1,
   name: 'intro',
   // If you use JavaScripts Template String `I am a Template String`, you can use HTML <></> and javascript ${} inside
-  text: `This is a sample introduction view.
-            <br />
-            <br />
-            The introduction view welcomes the participant and gives general information
-            about the experiment. You are in the <strong>${coin}</strong> group.
-            <br />
-            <br />
-            This is a minimal experiment with one forced choice view. It can serve as a starting point for programming your own experiment.`,
+  text: 'Welcome to my "Mental Rotation" experiment and thank you for your participation. <br/> <br/> Click the button below to get started.',
   buttonText: 'begin the experiment'
 });
 
@@ -39,11 +32,29 @@ const instructions = magpieViews.view_generator("instructions", {
   trials: 1,
   name: 'instructions',
   title: 'General Instructions',
-  text: `This is a sample instructions view.
-            <br />
-            <br />
-            Tell your participants what they are to do here.`,
-  buttonText: 'go to trials'
+  text: `In the following practice - and main part you will see several different pictures presented individually.
+        Each picture shows 2 representations of 3-dimensional objects in a different spatial orientation.
+        <br />
+        <br />
+        Your job is to decide whether the representations are
+        either of the <b>same</b> or of <b>different</b> objects. For that you have to use the keys "f" and "j" on your keyboard.
+        <br />
+        <br />
+        <b>f</b> corresponds for the <b>same</b> object <br/>
+        <b>j</b> corresponds for a <b>different</b> object <br/>
+        <br />
+        Please try to respond as accurate and as fast as possible. We will first start with the practice trial so that get comfortable with the task.`,
+  buttonText: 'go to practice trial'
+});
+
+const instructions2 = magpieViews.view_generator("instructions", {
+  trials: 1,
+  name: 'instructions2',
+  title: 'Great, let us start',
+  text: `Now you are ready for the main part of the experiment.
+        <br/>
+        Remember, try to respond as accurate and as fast as possible.`,
+  buttonText: 'Start the main trial'
 });
 
 
@@ -103,17 +114,74 @@ const thanks = magpieViews.view_generator("thanks", {
 
 
 // Here, we initialize a normal forced_choice view
-const forced_choice_2A = magpieViews.view_generator("forced_choice", {
+const practice = magpieViews.view_generator('key_press', {
   // This will use all trials specified in `data`, you can user a smaller value (for testing), but not a larger value
-  trials: trial_info.forced_choice.length,
+  trials: practice_trials.key_press.length,
   // name should be identical to the variable name
-  name: 'forced_choice_2A',
-  data: trial_info.forced_choice,
+  name: 'practice',
+  data: _.shuffle(practice_trials.key_press),
+  pause: 250,
   // you can add custom functions at different stages through a view's life cycle
   // hook: {
   //     after_response_enabled: check_response
   // }
 });
+
+const main = magpieViews.view_generator('key_press', {
+  trials: main_trials.key_press.length,
+  name: 'main',
+  data: _.shuffle(main_trials.key_press),
+  pause: 250,
+},
+{
+  handle_response_function: function (config, CT, magpie, answer_container_generator, startingTime) {
+
+        $(".magpie-view").append(answer_container_generator(config, CT));
+
+        const handleKeyPress = function(e) {
+            const keyPressed = String.fromCharCode(
+                e.which
+            ).toLowerCase();
+
+            if (keyPressed === config.data[CT].key1 || keyPressed === config.data[CT].key2) {
+                let correctness;
+                const RT = Date.now() - startingTime; // measure RT before anything else
+
+                if (
+                    config.data[CT].expected ===
+                    config.data[CT][keyPressed.toLowerCase()]
+                ) {
+                    correctness = "correct";
+                } else {
+                    correctness = "incorrect";
+                }
+
+                let trial_data = {
+                    trial_name: config.name,
+                    trial_number: CT + 1,
+                    key_pressed: keyPressed,
+                    correctness: correctness,
+                    RT: RT
+                };
+
+                trial_data[config.data[CT].key1] =
+                    config.data[CT][config.data[CT].key1];
+                trial_data[config.data[CT].key2] =
+                    config.data[CT][config.data[CT].key2];
+
+                trial_data = magpieUtils.view.save_config_trial_data(config.data[CT], trial_data);
+
+                magpie.trial_data.push(trial_data);
+                $("body").off("keydown", handleKeyPress);
+                magpie.findNextView();
+            }
+        };
+
+        $("body").on("keydown", handleKeyPress);
+    },
+}
+);
+
 
 // There are many more templates available:
 // forced_choice, slider_rating, dropdown_choice, testbox_input, rating_scale, image_selection, sentence_choice,
